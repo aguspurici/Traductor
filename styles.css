@@ -197,9 +197,21 @@ select {
   color: var(--text-primary);
   background-color: var(--bg-secondary);
   overflow-y: auto;
+
   &:empty::before {
     content: "Traducción";
     color: var(--text-secondary);
   }
 }
 
+.input-controls,
+.output-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  border-block: 1px solid var(--border-primary);
+}
+.output-controls{
+  background-color: var(--bg-secondary);
+}
