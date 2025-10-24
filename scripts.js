@@ -33,8 +33,6 @@ class GoogleTranslator {
         this.setupEventListeners();
 
         this.translationTimeout = null;
-
-
         this.currentTranslator = null;
         this.currentTranslatorKey = null;
         this.currentDetector = null;
@@ -47,41 +45,49 @@ class GoogleTranslator {
 
         this.sourceLanguage = $('#sourceLanguage');
         this.targetLanguage = $('#targetLanguage');
-        this.swapLanguages = $('#swapLanguages');
 
         this.micButton = $('#micButton');
         this.copyButton = $('#copyButton');
         this.speakerButton = $('#speakerButton');
-
+        this.swapLanguagesButton = $('#swapLanguages');
 
         //configuracion inicial
         this.targetLanguage.value = GoogleTranslator.DEFAULT_TARGET_LANGUAGE;
+
         //verificar que el usuario tiene soporte para la api de traduccion
         this.checkAPISupport()
-        
     }
 
     checkAPISupport() {
-        this.hasNativeTranslator = "Translator" in window
-        this.hasNativeDetector = "LanguageDetector" in window
+        this.hasNativeTranslator = "Translator" in window;
+        this.hasNativeDetector = "LanguageDetector" in window;
 
         if (!this.hasNativeTranslator || !this.hasNativeDetector) {
-            console.log("El navegador no soporta la API de traducción y detección nativa.")
+            console.warn("APIs nativas de traducción y detección de idioma NO soportadas en tu navegador.");
+            this.showAPIWarning();
+            return false;
         } else {
-            console.log("APIs nativas de IA disponibles.")
+            console.log("APIs nativas de IA disponibles.");
+            return true;
         }
+    }
+
+    showAPIWarning() {
+        const warning = $('#apiWarning');
+        warning.style.display = 'block';
     }
 
     setupEventListeners() {
         this.inputText.addEventListener('input', () => {
-            this.translate()
+            this.debounceTranslate();
         });
 
         this.sourceLanguage.addEventListener('change', () => this.translate())
         this.targetLanguage.addEventListener('change', () => this.translate())
 
-        this.swapLanguages.addEventListener('click', () => this.swapLanguages())
-
+        this.swapLanguagesButton.addEventListener('click', () => this.swapLanguages())
+        this.micButton.addEventListener('click', () => this.startVoiceRecognition())
+        this.speakerButton.addEventListener('click', () => this.speakTranslation())
     }
 
     debounceTranslate() {
@@ -91,65 +97,62 @@ class GoogleTranslator {
         }, 500);
     }
 
-    async getTranslation(text) {
 
-        const sourceLanguage = this.sourceLanguage.value;
+    updateDetectedLanguage(detectedLanguage) {
+        // Actualizar visualmente el idioma detectado
+        const option = this.sourceLanguage.querySelector(`option[value="${detectedLanguage}"]`)
+
+        if (option) {
+            const autoOption = this.sourceLanguage.querySelector(`option[value="auto"]`)
+            autoOption.textContent = `Detectar idioma (${option.textContent})`
+        }
+    }
+
+    async getTranslation(text) {
+        const sourceLanguage = this.sourceLanguage.value === 'auto'
+            ? await this.detectLanguage(text)
+            : this.sourceLanguage.value;
+
         const targetLanguage = this.targetLanguage.value;
 
         if (sourceLanguage === targetLanguage) return text;
 
-        const hasSupport = this.checkAPISupport();
-        if (!hasSupport) {
-            this.outputText.textContent = "El navegador no soporta la API de traducción nativa.";
-        }
-
-        //1. revisar o verificar si realmente tenemos soporte para la traduccion nativa
-        try {
-            const status = await window.Translator.availability({
-                sourceLanguage,
-                targetLanguage
-            });
-            if (status === 'unavailable') {
-                throw new Error(`La traducción de ${sourceLanguage} a ${targetLanguage} no está disponible.`);
-            }
-        } catch (error) {
-            console.error(error);
-
-            throw new Error(`La traducción de ${sourceLanguage} a ${targetLanguage} no está disponible.`);
-
-        }
-
-        //2. realizar la traduccion
-        const translatorKey = `${sourceLanguage}->${targetLanguage}`;
-
+        const translatorKey = `${sourceLanguage}-${targetLanguage}`;
 
         try {
-            if (!this.currentTranslator || this.currentTranslatorKey !== translatorKey) {
+            if (
+                !this.currentTranslator ||
+                this.currentTranslatorKey !== translatorKey
+            ) {
+                this.outputText.textContent = 'Cargando modelo...';
+
                 this.currentTranslator = await window.Translator.create({
                     sourceLanguage,
                     targetLanguage,
                     monitor: (monitor) => {
-                        monitor.addEventListener("downloadprogress", (event) => {
-                            this.outputText.innerHTML = `<span class="loading">Descargando modelo de traducción... ${Math.floor(event.loaded * 100)}%</span>`;
+                        monitor.addEventListener("downloadprogress", (e) => {
+                            this.outputText.innerHTML = `<span class="loading">Descargando modelo: ${Math.floor(e.loaded * 100)}%</span>`;
                         });
                     }
                 });
+
+                // Esperar hasta que el modelo esté listo
+                await this.currentTranslator.ready;
             }
+
             this.currentTranslatorKey = translatorKey;
 
             const translation = await this.currentTranslator.translate(text);
             return translation;
-
         } catch (error) {
-            console.error(error)
-            return 'Error en la traducción.';
+            console.error(error);
+            return 'Error al traducir.';
         }
-
-
     }
 
 
-    async translate() {
+
+      async translate() {
 
         const text = this.inputText.value.trim()
         if (!text) {
@@ -168,9 +171,120 @@ class GoogleTranslator {
 
         }
     }
-    swapLanguages() {
+    async swapLanguages() {
+        // primero, detectar si source es 'auto' para saber qué idioma
+        // hay que pasar al output
+        if (this.sourceLanguage.value === 'auto') {
+            const detectedLanguage = await this.detectLanguage(this.inputText.value)
+            this.sourceLanguage.value = detectedLanguage
+        }
 
+        // intercambiar los valores
+        const temporalLanguage = this.sourceLanguage.value
+        this.sourceLanguage.value = this.targetLanguage.value
+        this.targetLanguage.value = temporalLanguage
+
+        // intercambiar los textos
+        this.inputText.value = this.outputText.value
+        this.outputText.textContent = ""
+
+
+        if (this.inputText.value.trim()) {
+            this.translate()
+        }
+
+        // restaurar la opción de auto-detectar
     }
+
+    getFullLanguageCode(languageCode) {
+        return GoogleTranslator.FULL_LANGUAGE_NAMES[languageCode] ?? GoogleTranslator.DEFAULT_SOURCE_LANGUAGE
+    }
+
+
+    async startVoiceRecognition() {
+        const hasNativeRecognitionSupport = "SpeechRecognition" in window || "webkitSpeechRecognition" in window
+        if (!hasNativeRecognitionSupport) return
+
+        const SpeechRecognition = window.SpeechRecognition ?? window.webkitSpeechRecognition
+        const recognition = new SpeechRecognition()
+
+        recognition.continuous = false
+        recognition.interimResults = false
+
+        const language = this.sourceLanguage.value === 'auto'
+            ? await this.detectLanguage(this.inputText.value)
+            : this.sourceLanguage.value
+
+        recognition.lang = this.getFullLanguageCode(language)
+
+        recognition.onstart = () => {
+            this.micButton.style.backgroundColor = "var(--google-red)"
+            this.micButton.style.color = "white"
+        }
+
+        recognition.onend = () => {
+            this.micButton.style.backgroundColor = ""
+            this.micButton.style.color = ""
+        }
+
+        recognition.onresult = (event) => {
+            console.log(event.results)
+
+            const [{ transcript }] = event.results[0]
+            this.inputText.value = transcript
+            this.translate()
+        }
+
+        recognition.onerror = (event) => {
+            console.error('Error de reconocimiento de voz: ', event.error)
+        }
+
+        recognition.start()
+    }
+
+    speakTranslation() {
+        const hasNativeSupportSynthesis = "SpeechSynthesis" in window
+        if (!hasNativeSupportSynthesis) return
+
+        const text = this.outputText.textContent
+        if (!text) return
+
+        const utterance = new SpeechSynthesisUtterance(text)
+        utterance.lang = this.getFullLanguageCode(this.targetLanguage.value)
+        utterance.rate = 0.8
+
+        utterance.onstart = () => {
+            this.speakerButton.style.backgroundColor = "var(--google-green)"
+            this.speakerButton.style.color = "white"
+        }
+
+        utterance.onend = () => {
+            this.speakerButton.style.backgroundColor = ""
+            this.speakerButton.style.color = ""
+        }
+
+        window.speechSynthesis.speak(utterance)
+    }
+
+   async detectLanguage(text) {
+  try {
+    if (!this.currentDetector) {
+      this.currentDetector = await window.LanguageDetector.create({
+        expectedInputLanguages: GoogleTranslator.SUPPORTED_LANGUAGES.filter(lang => lang !== 'auto')
+      });
+    }
+
+    const results = await this.currentDetector.detect(text);
+    const detectedLanguage = results[0]?.detectedLanguage;
+
+    return detectedLanguage === 'und'
+      ? GoogleTranslator.DEFAULT_SOURCE_LANGUAGE
+      : detectedLanguage;
+  } catch (error) {
+    console.error("No he podido averiguar el idioma: ", error);
+    return GoogleTranslator.DEFAULT_SOURCE_LANGUAGE;
+  }
+}
 
 
 }

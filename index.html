@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -14,11 +15,12 @@
     />
 
     <link rel="stylesheet" href="styles.css" />
-    <script type="module" src="scripts.js" ></script>
+    <script type="module" src="scripts.js"></script>
   </head>
+
   <body>
     <div class="container">
-      <!-- header -->
+      <!-- Header -->
       <header class="header">
         <div class="header-content">
           <div class="logo">
@@ -28,14 +30,20 @@
             <span class="google-g">g</span>
             <span class="google-l">l</span>
             <span class="google-e">e</span>
-            <span class="translate">Traductor</span>
+            <span class="traductor">Traductor</span>
           </div>
         </div>
       </header>
-      <!-- selector -->
-       <section class="language-selection">
+
+      <!-- API Warning -->
+      <div id="apiWarning" class="api-warning" style="display: none">
+        ⚠️ APIs nativas de traducción no disponibles. Funcionalidad limitada.
+      </div>
+
+      <!-- Selector -->
+      <section class="language-selection">
         <div class="source-language">
-          <select id="sourceLanguage" title="Seleccionar idioma de origen">
+          <select id="sourceLanguage">
             <option value="auto">Detectar idioma</option>
             <option value="en">Inglés</option>
             <option value="es">Español</option>
@@ -48,11 +56,11 @@
             <option value="zh">Chino</option>
           </select>
         </div>
+
         <button class="swap-languages icon-button" id="swapLanguages">
-          <span class="material-symbols-outlined">swap_horiz
-            
-          </span>
+          <span class="material-symbols-outlined"> swap_horiz </span>
         </button>
+
         <div class="target-language">
           <select id="targetLanguage">
             <option value="en">Inglés</option>
@@ -65,38 +73,43 @@
             <option value="ja">Japonés</option>
             <option value="zh">Chino</option>
           </select>
-       </section>
-      <!-- textaera -->
-       <main class="translation-area">
+        </div>
+      </section>
+
+      <!-- Textarea -->
+      <main class="translation-area">
         <section class="input-section">
           <div class="textarea-container">
-            <textarea 
-            id="inputText" 
-            placeholder="Introduce el texto"
-            maxlength="5000"></textarea>
+            <textarea
+              id="inputText"
+              placeholder="Introduce el texto"
+              maxlength="5000"
+            ></textarea>
+            <!-- button para borrar el contenido -->
           </div>
           <footer class="input-controls">
-            <button class="icon-button mic-button" id="mic-button">
-              <span class="material-symbols-outlined">mic</span>
+            <button class="icon-button mic-button" id="micButton">
+              <span class="material-symbols-outlined"> mic </span>
             </button>
           </footer>
         </section>
+
         <section class="output-section">
           <div class="textarea-container">
             <output id="outputText"></output>
 
             <footer class="output-controls">
-            <button class="icon-button copy-button" id="copy-button">
-              <span class="material-symbols-outlined">content_copy</span>
-            </button>
+              <button class="icon-button copy-button" id="copyButton">
+                <span class="material-symbols-outlined"> content_copy </span>
+              </button>
 
-            <button class="icon-button speaker-button" id="speaker-button">
-              <span class="material-symbols-outlined">volume_up</span>
-            </button>
-          </footer>
+              <button class="icon-button speaker-button" id="speakerButton">
+                <span class="material-symbols-outlined"> volume_up </span>
+              </button>
+            </footer>
           </div>
         </section>
-       </main>
+      </main>
     </div>
   </body>
 </html>
